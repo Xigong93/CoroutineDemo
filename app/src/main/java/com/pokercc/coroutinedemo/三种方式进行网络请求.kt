@@ -1,10 +1,12 @@
+import android.annotation.SuppressLint
+import android.os.Handler
+import android.os.Message
 import io.reactivex.Flowable
-import io.reactivex.Observable
 import io.reactivex.schedulers.Schedulers
-import org.reactivestreams.Publisher
 import java.net.URL
 import java.util.concurrent.*
-
+import kotlinx.coroutines.*
+import kotlinx.coroutines.GlobalScope
 
 object NetUtil {
 
@@ -38,7 +40,27 @@ fun 基本多线程方式() {
     打印结果(tag, result)
 }
 
+/**
+ * 需要通过安卓的单元测试执行
+ */
 fun 安卓handler的方式() {
+    val tag = "基本多线程方式"
+
+    val handler = @SuppressLint("HandlerLeak")
+    object : Handler() {
+        override fun handleMessage(msg: Message?) {
+        }
+    }
+    Thread {
+        打印线程(tag, "进行网络请求")
+        val result = NetUtil.get("http://api.douban.com/v2/movie/top250")
+        handler.post {
+            打印线程(tag, "获得结果")
+            打印结果(tag, result)
+        }
+    }.start()
+    // 避免jvm 退出
+    TimeUnit.SECONDS.sleep(2)
 
 }
 
@@ -69,15 +91,23 @@ fun rxjava的方式() {
 }
 
 fun 协程的方式() {
-    suspend fun get() {
+    val tag = "协程的方式"
+    val result = GlobalScope.async {
+        打印线程(tag, "进行网络请求")
         NetUtil.get("http://api.douban.com/v2/movie/top250")
     }
-
-
+    runBlocking {
+        打印线程(tag, "获得结果")
+        打印结果(tag, result.await())
+    }
+    // 避免jvm 退出
+    TimeUnit.SECONDS.sleep(2)
 
 }
 
 fun main(args: Array<String>) {
     基本多线程方式()
+//    安卓handler的方式()
     rxjava的方式()
+    协程的方式()
 }
